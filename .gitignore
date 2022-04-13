@@ -3,5 +3,6 @@
 .project
 .class
 .logo
+.idea
 /target/
 .DS_Store
