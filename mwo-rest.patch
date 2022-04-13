@@ -1,0 +1,249 @@
+diff --git a/.gitignore b/.gitignore
+index 0a063f7..c72889f 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -3,5 +3,6 @@
+ .project
+ .class
+ .logo
++.idea
+ /target/
+ .DS_Store
+diff --git a/.travis.yml b/.travis.yml
+deleted file mode 100644
+index 4656aeb..0000000
+--- a/.travis.yml
++++ /dev/null
+@@ -1,7 +0,0 @@
+-language: java
+-sudo: false # faster builds
+-
+-script: "mvn cobertura:cobertura"
+-
+-after_success:
+-  - bash <(curl -s https://codecov.io/bash)
+diff --git a/pom.xml b/pom.xml
+index 9845a2d..7dbb334 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -40,12 +40,6 @@
+ 		<dependency>
+ 			<groupId>org.xerial</groupId>
+ 			<artifactId>sqlite-jdbc</artifactId>
+-			<version>3.6.2</version>
+-		</dependency>
+-		<dependency>
+-			<groupId>io.jsonwebtoken</groupId>
+-			<artifactId>jjwt</artifactId>
+-			<version>0.6.0</version>
+ 		</dependency>
+ 		<dependency>
+ 			<groupId>commons-collections</groupId>
+diff --git a/src/main/java/com/company/enroller/model/Meeting.java b/src/main/java/com/company/enroller/model/Meeting.java
+index 4cc05dc..8aa80fc 100644
+--- a/src/main/java/com/company/enroller/model/Meeting.java
++++ b/src/main/java/com/company/enroller/model/Meeting.java
+@@ -4,16 +4,7 @@ import java.util.Collection;
+ import java.util.HashSet;
+ import java.util.Set;
+ 
+-import javax.persistence.CascadeType;
+-import javax.persistence.Column;
+-import javax.persistence.Entity;
+-import javax.persistence.GeneratedValue;
+-import javax.persistence.GenerationType;
+-import javax.persistence.Id;
+-import javax.persistence.JoinColumn;
+-import javax.persistence.JoinTable;
+-import javax.persistence.ManyToMany;
+-import javax.persistence.Table;
++import javax.persistence.*;
+ 
+ import com.fasterxml.jackson.annotation.JsonIgnore;
+ 
+@@ -22,7 +13,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
+ public class Meeting {
+ 
+ 	@Id
+-	@GeneratedValue(strategy = GenerationType.AUTO)
++	@GeneratedValue(strategy = GenerationType.IDENTITY)
+ 	private long id;
+ 
+ 	@Column
+diff --git a/src/main/java/com/company/enroller/persistence/SQLiteDialect.java b/src/main/java/com/company/enroller/persistence/SQLiteDialect.java
+index faa7d2a..b98a54d 100755
+--- a/src/main/java/com/company/enroller/persistence/SQLiteDialect.java
++++ b/src/main/java/com/company/enroller/persistence/SQLiteDialect.java
+@@ -1,18 +1,13 @@
+ package com.company.enroller.persistence;
+ 
+-import java.sql.Types;
+-
+ import org.hibernate.dialect.Dialect;
+-import org.hibernate.dialect.function.StandardSQLFunction;
+-import org.hibernate.dialect.function.SQLFunctionTemplate;
+-import org.hibernate.dialect.function.VarArgsSQLFunction;
+-import org.hibernate.Hibernate;
+-import org.hibernate.type.IntegerType;
+-import org.hibernate.type.StringType;
++import org.hibernate.dialect.identity.IdentityColumnSupport;
++
++import java.sql.Types;
+ 
+ public class SQLiteDialect extends Dialect {
++
+ 	public SQLiteDialect() {
+-		super();
+ 		registerColumnType(Types.BIT, "integer");
+ 		registerColumnType(Types.TINYINT, "tinyint");
+ 		registerColumnType(Types.SMALLINT, "smallint");
+@@ -35,108 +30,44 @@ public class SQLiteDialect extends Dialect {
+ 		registerColumnType(Types.BLOB, "blob");
+ 		registerColumnType(Types.CLOB, "clob");
+ 		registerColumnType(Types.BOOLEAN, "integer");
+-
+-		registerFunction("concat", new VarArgsSQLFunction(StringType.INSTANCE, "",
+-				"||", ""));
+-		registerFunction("mod", new SQLFunctionTemplate(IntegerType.INSTANCE,
+-				"?1 % ?2"));
+-		registerFunction("substr", new StandardSQLFunction("substr",
+-				StringType.INSTANCE));
+-		registerFunction("substring", new StandardSQLFunction("substr",
+-				StringType.INSTANCE));
+-	}
+-
+-	public boolean supportsIdentityColumns() {
+-		return true;
+-	}
+-
+-	public boolean hasDataTypeInIdentityColumn() {
+-		return false; // As specify in NHibernate dialect
+-	}
+-
+-	public String getIdentityColumnString() {
+-		// return "integer primary key autoincrement";
+-		return "integer";
+ 	}
+ 
+-	public String getIdentitySelectString() {
+-		return "select last_insert_rowid()";
++	public IdentityColumnSupport getIdentityColumnSupport() {
++		return new SQLiteIdentityColumnSupport();
+ 	}
+ 
+-	public boolean supportsLimit() {
+-		return true;
+-	}
+-
+-	public String getLimitString(String query, boolean hasOffset) {
+-		return new StringBuffer(query.length() + 20).append(query).append(
+-				hasOffset ? " limit ? offset ?" : " limit ?").toString();
+-	}
+-
+-	public boolean supportsTemporaryTables() {
+-		return true;
+-	}
+-
+-	public String getCreateTemporaryTableString() {
+-		return "create temporary table if not exists";
+-	}
+-
+-	public boolean dropTemporaryTableAfterUse() {
++	public boolean hasAlterTable() {
+ 		return false;
+ 	}
+ 
+-	public boolean supportsCurrentTimestampSelection() {
+-		return true;
+-	}
+-
+-	public boolean isCurrentTimestampSelectStringCallable() {
++	public boolean dropConstraints() {
+ 		return false;
+ 	}
+ 
+-	public String getCurrentTimestampSelectString() {
+-		return "select current_timestamp";
++	public String getDropForeignKeyString() {
++		return "";
+ 	}
+ 
+-	public boolean supportsUnionAll() {
+-		return true;
++	public String getAddForeignKeyConstraintString(String constraintName, String[] foreignKey, String referencedTable, String[] primaryKey, boolean referencesPrimaryKey) {
++		return "";
+ 	}
+ 
+-	public boolean hasAlterTable() {
+-		return false; // As specify in NHibernate dialect
++	public String getAddPrimaryKeyConstraintString(String constraintName) {
++		return "";
+ 	}
+ 
+-	public boolean dropConstraints() {
+-		return false;
++	public String getForUpdateString() {
++		return "";
+ 	}
+ 
+ 	public String getAddColumnString() {
+ 		return "add column";
+ 	}
+ 
+-	public String getForUpdateString() {
+-		return "";
+-	}
+-
+ 	public boolean supportsOuterJoinForUpdate() {
+ 		return false;
+ 	}
+ 
+-	public String getDropForeignKeyString() {
+-		throw new UnsupportedOperationException(
+-				"No drop foreign key syntax supported by SQLiteDialect");
+-	}
+-
+-	public String getAddForeignKeyConstraintString(String constraintName,
+-			String[] foreignKey, String referencedTable, String[] primaryKey,
+-			boolean referencesPrimaryKey) {
+-		throw new UnsupportedOperationException(
+-				"No add foreign key syntax supported by SQLiteDialect");
+-	}
+-
+-	public String getAddPrimaryKeyConstraintString(String constraintName) {
+-		throw new UnsupportedOperationException(
+-				"No add primary key syntax supported by SQLiteDialect");
+-	}
+-
+ 	public boolean supportsIfExistsBeforeTableName() {
+ 		return true;
+ 	}
+diff --git a/src/main/java/com/company/enroller/persistence/SQLiteIdentityColumnSupport.java b/src/main/java/com/company/enroller/persistence/SQLiteIdentityColumnSupport.java
+new file mode 100644
+index 0000000..12cb975
+--- /dev/null
++++ b/src/main/java/com/company/enroller/persistence/SQLiteIdentityColumnSupport.java
+@@ -0,0 +1,22 @@
++package com.company.enroller.persistence;
++
++import org.hibernate.MappingException;
++import org.hibernate.dialect.identity.IdentityColumnSupportImpl;
++
++public class SQLiteIdentityColumnSupport extends IdentityColumnSupportImpl {
++
++    @Override
++    public boolean supportsIdentityColumns() {
++        return true;
++    }
++
++    @Override
++    public String getIdentitySelectString(String table, String column, int type) throws MappingException {
++        return "select last_insert_rowid()";
++    }
++
++    @Override
++    public String getIdentityColumnString(int type) throws MappingException {
++        return "integer";
++    }
++}
+\ No newline at end of file
